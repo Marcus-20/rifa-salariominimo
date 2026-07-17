@@ -3,65 +3,110 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bolão da Sorte | Salário Mínimo</title>
+    <title>Bolão Salário Mínimo 💸</title>
     <style>
-        :root { 
-            --gold: #ffaa00; --dark: #0d0603; --light: #fff5f0; --accent: #ff5500; 
-        }
+        :root { --gold: #ffaa00; --dark: #0d0603; --light: #fff5f0; --accent: #ff5500; }
         body { font-family: 'Segoe UI', sans-serif; background-color: var(--dark); color: var(--light); margin: 0; padding: 20px; }
         .container { max-width: 600px; margin: 0 auto; text-align: center; }
         
-        /* Banner de Destaque */
+        /* Cabeçalho */
         .hero { background: linear-gradient(135deg, #2b150a, #0d0603); padding: 30px; border: 2px solid var(--gold); border-radius: 20px; box-shadow: 0 0 20px rgba(255,170,0,0.3); }
-        .hero h1 { color: var(--gold); font-size: 28px; margin: 0; text-transform: uppercase; }
-        .prize { font-size: 32px; font-weight: bold; color: #fff; margin: 10px 0; }
+        .hero h1 { color: var(--gold); font-size: 24px; margin: 0; text-transform: uppercase; }
+        .prize { font-size: 28px; font-weight: bold; margin: 10px 0; }
         
-        /* Barra de Progresso */
-        .progress-box { margin: 20px 0; background: #333; height: 10px; border-radius: 5px; overflow: hidden; }
-        .progress-bar { background: var(--gold); height: 100%; width: 0%; transition: 1s; }
-
-        /* Grade */
-        .grade { display: grid; grid-template-columns: repeat(10, 1fr); gap: 5px; margin-top: 20px; }
-        .numero { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; border: 1px solid #444; border-radius: 5px; cursor: pointer; font-size: 12px; }
+        /* Grade de números */
+        .grade { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; margin: 25px 0; }
+        .numero { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; border: 1px solid #444; border-radius: 6px; cursor: pointer; font-size: 13px; transition: 0.2s; }
         .disponivel { border-color: var(--gold); color: var(--gold); }
-        .selecionado { background: var(--gold); color: #000; font-weight: bold; }
-        .pago { background: #555; opacity: 0.3; cursor: not-allowed; }
+        .selecionado { background: var(--gold); color: #000; font-weight: bold; transform: scale(1.1); }
+        .pago { background: #333; opacity: 0.4; cursor: not-allowed; }
+        
+        /* Checkout */
+        .checkout { margin-top: 30px; padding: 25px; background: #1a0f0a; border: 1px solid #444; border-radius: 15px; display: none; }
+        input { width: 90%; padding: 12px; margin: 8px 0; border-radius: 8px; border: 1px solid #555; background: #000; color: white; }
+        button { width: 95%; padding: 15px; background: linear-gradient(90deg, var(--gold), var(--accent)); border: none; border-radius: 25px; font-weight: 800; color: white; cursor: pointer; margin-top: 15px; font-size: 16px; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="hero">
-            <h1>Bolão Exclusivo</h1>
-            <div class="prize">💰 1 SALÁRIO MÍNIMO NO PIX</div>
-            <p>Garanta seu número agora e participe!</p>
-            <div class="progress-box"><div class="progress-bar" id="barra-progresso"></div></div>
-            <small id="texto-status">Carregando números...</small>
+            <h1>Bolão Salário Mínimo</h1>
+            <div class="prize">💰 R$ 1.320,00 NO PIX</div>
+            <p>Selecione seus números e garanta sua chance!</p>
         </div>
 
         <div class="grade" id="grade-numeros"></div>
+
+        <div id="checkout" class="checkout">
+            <h3 style="color: var(--gold);">Finalizar Pedido</h3>
+            <p id="resumo-pedido"></p>
+            <input type="text" id="nome" placeholder="Seu Nome Completo">
+            <input type="text" id="tel" placeholder="Seu WhatsApp (Ex: 83999999999)">
+            <button onclick="finalizarCompra()">Gerar PIX e Reservar</button>
+        </div>
     </div>
 
     <script>
+        let selecionados = [];
+
         async function carregarGrade() {
             const res = await fetch('/api/numeros');
-            const numeros = await res.json();
+            const data = await res.json();
             const grade = document.getElementById('grade-numeros');
-            const total = numeros.length;
-            const pagos = numeros.filter(n => n.status !== 'Disponível').length;
-            
-            // Atualiza barra
-            document.getElementById('barra-progresso').style.width = (pagos/total)*100 + "%";
-            document.getElementById('texto-status').innerText = `${pagos} de ${total} números vendidos`;
-
             grade.innerHTML = '';
-            numeros.forEach(item => {
+            
+            data.forEach(item => {
                 const box = document.createElement('div');
                 box.innerText = item.numero;
                 box.className = 'numero ' + (item.status === 'Disponível' ? 'disponivel' : 'pago');
-                if(item.status === 'Disponível') box.onclick = () => alert('Número ' + item.numero + ' disponível!');
+                
+                if(item.status === 'Disponível') {
+                    box.onclick = () => {
+                        if(selecionados.includes(item.numero)) {
+                            selecionados = selecionados.filter(n => n !== item.numero);
+                            box.classList.remove('selecionado');
+                        } else {
+                            selecionados.push(item.numero);
+                            box.classList.add('selecionado');
+                        }
+                        atualizarCheckout();
+                    };
+                }
                 grade.appendChild(box);
             });
         }
+
+        function atualizarCheckout() {
+            const div = document.getElementById('checkout');
+            if(selecionados.length > 0) {
+                div.style.display = 'block';
+                document.getElementById('resumo-pedido').innerText = 
+                    `Números escolhidos: ${selecionados.join(', ')} | Total: R$ ${selecionados.length * 10},00`;
+            } else {
+                div.style.display = 'none';
+            }
+        }
+
+        async function finalizarCompra() {
+            const nome = document.getElementById('nome').value;
+            const tel = document.getElementById('tel').value;
+            if(!nome || !tel) return alert("Por favor, preencha nome e telefone!");
+
+            const res = await fetch('/api/criar-pagamento', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nome, telefone: tel, numeros: selecionados })
+            });
+
+            const data = await res.json();
+            if(data.copia_cola) {
+                alert("PIX gerado com sucesso! Copie a chave abaixo:\n\n" + data.copia_cola);
+                window.location.reload();
+            } else {
+                alert("Erro ao gerar pagamento. Tente novamente.");
+            }
+        }
+
         carregarGrade();
     </script>
 </body>
