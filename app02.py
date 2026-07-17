@@ -1,7 +1,9 @@
 import os
-from flask import Flask, render_template, request, jsonify
+import socket
 import psycopg2
+from flask import Flask, render_template, request, jsonify
 from psycopg2.extras import RealDictCursor, execute_values
+from urllib.parse import urlparse
 import mercadopago
 
 app = Flask(__name__)
@@ -14,10 +16,24 @@ MERCADOPAGO_TOKEN = os.environ.get("MERCADOPAGO_TOKEN")
 sdk = mercadopago.SDK(MERCADOPAGO_TOKEN) if MERCADOPAGO_TOKEN else None
 
 def get_db_connection():
-    """Cria uma conexão rápida com o banco de dados do Supabase."""
+    """Cria uma conexão com o banco de dados forçando IPv4 para evitar erros no Render."""
     if not DATABASE_URL:
         raise ValueError("A variável de ambiente DATABASE_URL não está configurada.")
-    return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+    
+    # Extrai o host da URL para resolver para IPv4
+    parsed = urlparse(DATABASE_URL)
+    host = parsed.hostname
+    port = parsed.port or 5432
+    
+    # Tenta resolver o host para IPv4 especificamente
+    try:
+        ip_v4 = socket.getaddrinfo(host, port, socket.AF_INET)[0][4][0]
+        # Monta uma nova URL usando o IP resolvido
+        new_db_url = DATABASE_URL.replace(host, ip_v4)
+        return psycopg2.connect(new_db_url, cursor_factory=RealDictCursor, connect_timeout=10)
+    except Exception as e:
+        print(f"Erro ao forçar IPv4, tentando conexão normal: {e}")
+        return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor, connect_timeout=10)
 
 def inicializar_banco():
     """Cria a tabela de rifas e gera os números de 0 a 500 caso não existam."""
@@ -27,7 +43,6 @@ def inicializar_banco():
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # 1. Cria a tabela se ela ainda não existir no Supabase
         cur.execute("""
             CREATE TABLE IF NOT EXISTS rifas (
                 numero INT PRIMARY KEY,
@@ -42,23 +57,17 @@ def inicializar_banco():
         """)
         conn.commit()
         
-        # 2. Verifica quantos números já estão salvos
         cur.execute("SELECT COUNT(*) as total FROM rifas;")
         total = cur.fetchone()["total"]
         
-        # 3. Se a tabela estiver vazia, gera de 0 a 500 em lote (super rápido!)
         if total == 0:
             print("Gerando números de 0 a 500 no Supabase...")
             valores = [(i, 'disponivel') for i in range(501)]
-            execute_values(
-                cur, 
-                "INSERT INTO rifas (numero, status) VALUES %s", 
-                valores
-            )
+            execute_values(cur, "INSERT INTO rifas (numero, status) VALUES %s", valores)
             conn.commit()
             print("501 números gerados com sucesso!")
         else:
-            print(f"Os números já estão criados no banco. Total encontrado: {total}")
+            print(f"Os números já estão criados no banco. Total: {total}")
             
     except Exception as e:
         print(f"Erro ao inicializar o banco de dados: {e}")
@@ -66,14 +75,13 @@ def inicializar_banco():
         if conn:
             conn.close()
 
-# Executa a geração automática assim que o Flask inicializa
+# Executa a geração automática
 inicializar_banco()
 
-# --- ROTAS DO SITE ---
+# --- ROTAS ---
 
 @app.route('/')
 def index():
-    """Página inicial que exibe os números da rifa."""
     conn = None
     try:
         conn = get_db_connection()
@@ -89,14 +97,11 @@ def index():
 
 @app.route('/comprar', methods=['POST'])
 def comprar():
-    """Reserva os números e gera o pagamento via Pix."""
     if not sdk:
-        return jsonify({"erro": "Mercado Pago não configurado no servidor"}), 500
+        return jsonify({"erro": "Mercado Pago não configurado"}), 500
         
     data = request.json
-    nome = data.get('nome')
-    telefone = data.get('telefone')
-    numeros_selecionados = data.get('numeros') # Espera uma lista de números, ex: [42, 107]
+    nome, telefone, numeros_selecionados = data.get('nome'), data.get('telefone'), data.get('numeros')
     
     if not nome or not telefone or not numeros_selecionados:
         return jsonify({"erro": "Dados incompletos"}), 400
@@ -106,86 +111,34 @@ def comprar():
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Verifica se os números escolhidos ainda estão disponíveis
-        cur.execute(
-            "SELECT numero FROM rifas WHERE numero = ANY(%s) AND status != 'disponivel';",
-            (numeros_selecionados,)
-        )
-        ja_reservados = cur.fetchall()
-        if ja_reservados:
-            return jsonify({"erro": f"Os números {[r['numero'] for r in ja_reservados]} já foram comprados ou reservados."}), 400
+        cur.execute("SELECT numero FROM rifas WHERE numero = ANY(%s) AND status != 'disponivel';", (numeros_selecionados,))
+        if cur.fetchall():
+            return jsonify({"erro": "Números já ocupados."}), 400
             
-        # Calcula o valor total da compra (ex: R$ 10,00 por número)
-        valor_por_numero = 10.00  
-        valor_total = float(len(numeros_selecionados) * valor_por_numero)
+        valor_total = float(len(numeros_selecionados) * 10.00)
         
-        # Cria a requisição de pagamento via Pix no Mercado Pago
         payment_data = {
             "transaction_amount": valor_total,
-            "description": f"Rifa Salário Mínimo - Números {numeros_selecionados}",
+            "description": f"Rifa Salário Mínimo",
             "payment_method_id": "pix",
-            "payer": {
-                "email": "comprador@email.com", # Email fictício exigido pela API
-                "first_name": nome,
-                "phone": {
-                    "area_code": telefone[:2],
-                    "number": telefone[2:]
-                }
-            }
+            "payer": {"email": "comprador@email.com", "first_name": nome}
         }
         
-        payment_response = sdk.payment().create(payment_data)
-        payment = payment_response["response"]
-        
-        # Pega as informações do Pix de retorno
+        payment = sdk.payment().create(payment_data)["response"]
         payment_id = str(payment.get("id"))
-        point_of_interaction = payment.get("point_of_interaction", {})
-        transaction_data = point_of_interaction.get("transaction_data", {})
-        qr_code = transaction_data.get("qr_code")
-        qr_code_base64 = transaction_data.get("qr_code_base64")
+        qr_code = payment.get("point_of_interaction", {}).get("transaction_data", {}).get("qr_code")
         
-        # Salva a reserva no Supabase
         for num in numeros_selecionados:
-            cur.execute("""
-                UPDATE rifas 
-                SET status = 'reservado', nome_comprador = %s, telefone = %s, 
-                    pix_copia_cola = %s, qr_code = %s, payment_id = %s
-                WHERE numero = %s;
-            """, (nome, telefone, qr_code, qr_code_base64, payment_id, num))
+            cur.execute("UPDATE rifas SET status = 'reservado', nome_comprador = %s, pix_copia_cola = %s, payment_id = %s WHERE numero = %s;", 
+                        (nome, qr_code, payment_id, num))
             
         conn.commit()
-        
-        return jsonify({
-            "sucesso": True,
-            "pix_copia_cola": qr_code,
-            "qr_code_base64": qr_code_base64,
-            "payment_id": payment_id
-        })
-        
+        return jsonify({"sucesso": True, "pix_copia_cola": qr_code})
     except Exception as e:
-        if conn:
-            conn.rollback()
-        return jsonify({"erro": f"Erro interno: {e}"}), 500
+        if conn: conn.rollback()
+        return jsonify({"erro": str(e)}), 500
     finally:
-        if conn:
-            conn.close()
-
-@app.route('/admin')
-def admin():
-    """Painel administrativo para visualizar todas as reservas."""
-    conn = None
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM rifas ORDER BY numero ASC;")
-        rifas = cur.fetchall()
-        return render_template('admin.html', rifas=rifas)
-    except Exception as e:
-        return f"Erro no painel: {e}", 500
-    finally:
-        if conn:
-            conn.close()
+        if conn: conn.close()
 
 if __name__ == '__main__':
-    # Localmente usa a porta 5000 por padrão
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)), debug=True)
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
