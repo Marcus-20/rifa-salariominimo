@@ -3,54 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Salário Mínimo no PIX 💸</title>
+    <title>Bolão da Sorte | Salário Mínimo</title>
     <style>
-        :root { --bg-principal: #0d0603; --cor-dourado: #ffaa00; --cor-laranja: #ff5500; --cor-vermelho: #e60000; --cor-texto: #fff5f0; --glass-bg: rgba(25, 12, 6, 0.75); }
-        body { font-family: sans-serif; background-color: var(--bg-principal); color: var(--cor-texto); padding: 20px; min-height: 100vh; }
-        .container { max-width: 700px; margin: 0 auto; }
-        .grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(50px, 1fr)); gap: 10px; background: var(--glass-bg); padding: 20px; border-radius: 20px; }
-        .numero { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-weight: 800; border-radius: 10px; cursor: pointer; border: 2px solid transparent; }
-        .numero.disponivel { border-color: var(--cor-dourado); color: var(--cor-dourado); }
-        .numero.selecionado { background: #fff !important; color: #000 !important; transform: scale(1.1); }
-        .numero.reservado { border-color: #ffea00; color: #ffea00; opacity: 0.6; cursor: not-allowed; }
-        .numero.pago { border-color: var(--cor-vermelho); color: var(--cor-vermelho); opacity: 0.5; cursor: not-allowed; }
+        :root { 
+            --gold: #ffaa00; --dark: #0d0603; --light: #fff5f0; --accent: #ff5500; 
+        }
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--dark); color: var(--light); margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; text-align: center; }
+        
+        /* Banner de Destaque */
+        .hero { background: linear-gradient(135deg, #2b150a, #0d0603); padding: 30px; border: 2px solid var(--gold); border-radius: 20px; box-shadow: 0 0 20px rgba(255,170,0,0.3); }
+        .hero h1 { color: var(--gold); font-size: 28px; margin: 0; text-transform: uppercase; }
+        .prize { font-size: 32px; font-weight: bold; color: #fff; margin: 10px 0; }
+        
+        /* Barra de Progresso */
+        .progress-box { margin: 20px 0; background: #333; height: 10px; border-radius: 5px; overflow: hidden; }
+        .progress-bar { background: var(--gold); height: 100%; width: 0%; transition: 1s; }
+
+        /* Grade */
+        .grade { display: grid; grid-template-columns: repeat(10, 1fr); gap: 5px; margin-top: 20px; }
+        .numero { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; border: 1px solid #444; border-radius: 5px; cursor: pointer; font-size: 12px; }
+        .disponivel { border-color: var(--gold); color: var(--gold); }
+        .selecionado { background: var(--gold); color: #000; font-weight: bold; }
+        .pago { background: #555; opacity: 0.3; cursor: not-allowed; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>💸 BILHETE DA FORTUNA 💸</h1>
+        <div class="hero">
+            <h1>Bolão Exclusivo</h1>
+            <div class="prize">💰 1 SALÁRIO MÍNIMO NO PIX</div>
+            <p>Garanta seu número agora e participe!</p>
+            <div class="progress-box"><div class="progress-bar" id="barra-progresso"></div></div>
+            <small id="texto-status">Carregando números...</small>
+        </div>
+
         <div class="grade" id="grade-numeros"></div>
     </div>
 
     <script>
-        let selecionados = [];
         async function carregarGrade() {
             const res = await fetch('/api/numeros');
             const numeros = await res.json();
             const grade = document.getElementById('grade-numeros');
+            const total = numeros.length;
+            const pagos = numeros.filter(n => n.status !== 'Disponível').length;
+            
+            // Atualiza barra
+            document.getElementById('barra-progresso').style.width = (pagos/total)*100 + "%";
+            document.getElementById('texto-status').innerText = `${pagos} de ${total} números vendidos`;
+
             grade.innerHTML = '';
             numeros.forEach(item => {
                 const box = document.createElement('div');
-                box.innerText = String(item.numero).padStart(2, '0');
-                if (item.status === 'Disponível') {
-                    box.className = 'numero disponivel';
-                    box.onclick = () => alternarNumero(item.numero, box);
-                } else if (item.status === 'Reservado') {
-                    box.className = 'numero reservado';
-                } else {
-                    box.className = 'numero pago';
-                }
+                box.innerText = item.numero;
+                box.className = 'numero ' + (item.status === 'Disponível' ? 'disponivel' : 'pago');
+                if(item.status === 'Disponível') box.onclick = () => alert('Número ' + item.numero + ' disponível!');
                 grade.appendChild(box);
             });
-        }
-        function alternarNumero(num, box) {
-            if (selecionados.includes(num)) {
-                selecionados = selecionados.filter(n => n !== num);
-                box.classList.remove('selecionado');
-            } else {
-                selecionados.push(num);
-                box.classList.add('selecionado');
-            }
         }
         carregarGrade();
     </script>
