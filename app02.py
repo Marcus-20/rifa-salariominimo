@@ -1,233 +1,191 @@
-from flask import Flask, jsonify, request, render_template
 import os
-import re
-import random
+from flask import Flask, render_template, request, jsonify
 import psycopg2
-from psycopg2.extras import RealDictCursor
+from psycopg2.extras import RealDictCursor, execute_values
 import mercadopago
 
 app = Flask(__name__)
 
-# === CONFIGURAÇÕES DA RIFA DE ELITE ===
-VALOR_NUMERO = 10.00  # R$ 10,00 por número
+# Configurações obtidas das variáveis de ambiente do Render
+DATABASE_URL = os.environ.get("DATABASE_URL")
+MERCADOPAGO_TOKEN = os.environ.get("MERCADOPAGO_TOKEN")
 
-# O token será puxado das variáveis de ambiente do Render ou você pode colocar o seu novo aqui temporariamente para testes locais
-MERCADOPAGO_TOKEN = os.environ.get("MERCADOPAGO_TOKEN", "SEU_NOVO_TOKEN_AQUI")
+# Inicializa o SDK do Mercado Pago
+sdk = mercadopago.SDK(MERCADOPAGO_TOKEN) if MERCADOPAGO_TOKEN else None
 
-def conectar_banco():
-    url_banco = os.environ.get("DATABASE_URL")
-    if url_banco:
-        return psycopg2.connect(url_banco)
-    else:
-        # Configuração padrão para teste local usando PostgreSQL
-        return psycopg2.connect(
-            host="localhost",
-            database="postgres",
-            user="postgres",
-            password="03022007" # Altere para a senha do seu banco local, se necessário
-        )
+def get_db_connection():
+    """Cria uma conexão rápida com o banco de dados do Supabase."""
+    if not DATABASE_URL:
+        raise ValueError("A variável de ambiente DATABASE_URL não está configurada.")
+    return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
 def inicializar_banco():
-    """Cria a tabela 'sorteio_salario_minimo' de forma limpa e independente"""
+    """Cria a tabela de rifas e gera os números de 0 a 500 caso não existam."""
+    print("Iniciando verificação do banco de dados...")
+    conn = None
     try:
-        conexao = conectar_banco()
-        cursor = conexao.cursor()
+        conn = get_db_connection()
+        cur = conn.cursor()
         
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS sorteio_salario_minimo (
+        # 1. Cria a tabela se ela ainda não existir no Supabase
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS rifas (
                 numero INT PRIMARY KEY,
-                status VARCHAR(20) DEFAULT 'Disponível',
+                status VARCHAR(20) DEFAULT 'disponivel',
                 nome_comprador VARCHAR(100),
-                telefone VARCHAR(20)
-            )
+                telefone VARCHAR(20),
+                pago BOOLEAN DEFAULT FALSE,
+                pix_copia_cola TEXT,
+                qr_code TEXT,
+                payment_id VARCHAR(50)
+            );
         """)
-        conexao.commit()
-
-        cursor.execute("SELECT COUNT(*) FROM sorteio_salario_minimo")
-        total = cursor.fetchone()[0]
-
+        conn.commit()
+        
+        # 2. Verifica quantos números já estão salvos
+        cur.execute("SELECT COUNT(*) as total FROM rifas;")
+        total = cur.fetchone()["total"]
+        
+        # 3. Se a tabela estiver vazia, gera de 0 a 500 em lote (super rápido!)
         if total == 0:
-            for i in range(1, 101):
-                cursor.execute(
-                    "INSERT INTO sorteio_salario_minimo (numero, status) VALUES (%s, 'Disponível')",
-                    (i,)
-                )
-            conexao.commit()
-            print("🔥 Tabela 'sorteio_salario_minimo' criada com 100 números!")
+            print("Gerando números de 0 a 500 no Supabase...")
+            valores = [(i, 'disponivel') for i in range(501)]
+            execute_values(
+                cur, 
+                "INSERT INTO rifas (numero, status) VALUES %s", 
+                valores
+            )
+            conn.commit()
+            print("501 números gerados com sucesso!")
+        else:
+            print(f"Os números já estão criados no banco. Total encontrado: {total}")
             
-        cursor.close()
-        conexao.close()
     except Exception as e:
-        print(f"⚠️ Erro ao inicializar banco: {str(e)}")
+        print(f"Erro ao inicializar o banco de dados: {e}")
+    finally:
+        if conn:
+            conn.close()
 
-# Inicializa o banco assim que o servidor ligar
+# Executa a geração automática assim que o Flask inicializa
 inicializar_banco()
+
+# --- ROTAS DO SITE ---
 
 @app.route('/')
 def index():
-    return render_template('index.html')
-
-@app.route('/admin')
-def admin_painel():
-    return render_template('admin.html')
-
-# API para listar os números na tela do comprador
-@app.route('/api/numeros', methods=['GET'])
-def listar_numeros():
+    """Página inicial que exibe os números da rifa."""
+    conn = None
     try:
-        conexao = conectar_banco()
-        cursor = conexao.cursor(cursor_factory=RealDictCursor)
-        cursor.execute("SELECT numero, status, nome_comprador, telefone FROM sorteio_salario_minimo ORDER BY numero ASC")
-        numeros = cursor.fetchall()
-        cursor.close()
-        conexao.close()
-        return jsonify(numeros)
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT numero, status FROM rifas ORDER BY numero ASC;")
+        numeros = cur.fetchall()
+        return render_template('index.html', numeros=numeros)
     except Exception as e:
-        return jsonify({"erro": str(e)}), 500
+        return f"Erro ao carregar os números: {e}", 500
+    finally:
+        if conn:
+            conn.close()
 
-# API para reservar e gerar o Pix
-@app.route('/api/reservar', methods=['POST'])
-def reservar_numeros():
-    dados = request.json
-    nome = dados.get('nome', 'Comprador Anonimo')
-    telefone_bruto = dados.get('telefone', '')
-    numeros_escolhidos = dados.get('numeros') 
+@app.route('/comprar', methods=['POST'])
+def comprar():
+    """Reserva os números e gera o pagamento via Pix."""
+    if not sdk:
+        return jsonify({"erro": "Mercado Pago não configurado no servidor"}), 500
+        
+    data = request.json
+    nome = data.get('nome')
+    telefone = data.get('telefone')
+    numeros_selecionados = data.get('numeros') # Espera uma lista de números, ex: [42, 107]
+    
+    if not nome or not telefone or not numeros_selecionados:
+        return jsonify({"erro": "Dados incompletos"}), 400
 
-    if not numeros_escolhidos:
-        return jsonify({"erro": "Nenhum número selecionado"}), 400
-
+    conn = None
     try:
-        conexao = conectar_banco()
-        cursor = conexao.cursor()
+        conn = get_db_connection()
+        cur = conn.cursor()
         
-        # Validar se algum número já foi pego
-        format_strings = ','.join(['%s'] * len(numeros_escolhidos))
-        cursor.execute(f"SELECT numero FROM sorteio_salario_minimo WHERE numero IN ({format_strings}) AND status != 'Disponível'", tuple(numeros_escolhidos))
-        ocupados = cursor.fetchall()
+        # Verifica se os números escolhidos ainda estão disponíveis
+        cur.execute(
+            "SELECT numero FROM rifas WHERE numero = ANY(%s) AND status != 'disponivel';",
+            (numeros_selecionados,)
+        )
+        ja_reservados = cur.fetchall()
+        if ja_reservados:
+            return jsonify({"erro": f"Os números {[r['numero'] for r in ja_reservados]} já foram comprados ou reservados."}), 400
+            
+        # Calcula o valor total da compra (ex: R$ 10,00 por número)
+        valor_por_numero = 10.00  
+        valor_total = float(len(numeros_selecionados) * valor_por_numero)
         
-        if ocupados:
-            cursor.close()
-            conexao.close()
-            return jsonify({"erro": f"Os números {[o[0] for o in ocupados]} já foram comprados ou reservados."}), 400
-
-        telefone_limpo = re.sub(r'\D', '', str(telefone_bruto))
-        if len(telefone_limpo) < 10:
-            return jsonify({"erro": "Digite um WhatsApp válido com DDD."}), 400
-        
-        ddd = telefone_limpo[:2]
-        numero_tel = telefone_limpo[2:]
-        valor_total = len(numeros_escolhidos) * VALOR_NUMERO
-
-        # Conecta com a API do Mercado Pago
-        mp = mercadopago.SDK(MERCADOPAGO_TOKEN)
-        ref_id = f"salariominimo-{'_'.join(map(str, numeros_escolhidos))}"
-
+        # Cria a requisição de pagamento via Pix no Mercado Pago
         payment_data = {
-            "transaction_amount": float(valor_total),
-            "description": f"Rifa Salário Mínimo - Nr: {numeros_escolhidos}",
+            "transaction_amount": valor_total,
+            "description": f"Rifa Salário Mínimo - Números {numeros_selecionados}",
             "payment_method_id": "pix",
             "payer": {
-                "email": f"cliente_{telefone_limpo}@gmail.com", 
+                "email": "comprador@email.com", # Email fictício exigido pela API
                 "first_name": nome,
                 "phone": {
-                    "area_code": ddd,
-                    "number": numero_tel
-                },
-                "identification": {
-                    "type": "CPF",
-                    "number": "11122233344"
+                    "area_code": telefone[:2],
+                    "number": telefone[2:]
                 }
-            },
-            "external_reference": ref_id
+            }
         }
-
-        pagamento_resposta = mp.payment().create(payment_data)
-        pagamento = pagamento_resposta.get("response", {})
-
-        if "point_of_interaction" in pagamento:
-            qr_code_copia_cola = pagamento["point_of_interaction"]["transaction_data"]["qr_code"]
-            qr_code_base64 = pagamento["point_of_interaction"]["transaction_data"]["qr_code_base64"]
-            id_pagamento_mp = pagamento["id"]
-
-            for num in numeros_escolhidos:
-                cursor.execute(
-                    "UPDATE sorteio_salario_minimo SET nome_comprador=%s, telefone=%s, status='Reservado' WHERE numero=%s",
-                    (nome, telefone_limpo, num)
-                )
-            conexao.commit()
-            cursor.close()
-            conexao.close()
-
-            return jsonify({
-                "status": "Reservado",
-                "total": valor_total,
-                "id_pagamento": id_pagamento_mp,
-                "pix_copia_cola": qr_code_copia_cola,
-                "pix_image": qr_code_base64
-            })
-        else:
-            cursor.close()
-            conexao.close()
-            return jsonify({"erro": f"O Mercado Pago recusou o pagamento. Verifique suas credenciais."}), 400
-
+        
+        payment_response = sdk.payment().create(payment_data)
+        payment = payment_response["response"]
+        
+        # Pega as informações do Pix de retorno
+        payment_id = str(payment.get("id"))
+        point_of_interaction = payment.get("point_of_interaction", {})
+        transaction_data = point_of_interaction.get("transaction_data", {})
+        qr_code = transaction_data.get("qr_code")
+        qr_code_base64 = transaction_data.get("qr_code_base64")
+        
+        # Salva a reserva no Supabase
+        for num in numeros_selecionados:
+            cur.execute("""
+                UPDATE rifas 
+                SET status = 'reservado', nome_comprador = %s, telefone = %s, 
+                    pix_copia_cola = %s, qr_code = %s, payment_id = %s
+                WHERE numero = %s;
+            """, (nome, telefone, qr_code, qr_code_base64, payment_id, num))
+            
+        conn.commit()
+        
+        return jsonify({
+            "sucesso": True,
+            "pix_copia_cola": qr_code,
+            "qr_code_base64": qr_code_base64,
+            "payment_id": payment_id
+        })
+        
     except Exception as e:
-        return jsonify({"erro": f"Erro interno: {str(e)}"}), 500
+        if conn:
+            conn.rollback()
+        return jsonify({"erro": f"Erro interno: {e}"}), 500
+    finally:
+        if conn:
+            conn.close()
 
-# API para o painel salvar alterações manuais
-@app.route('/api/admin/editar-numero', methods=['POST'])
-def editar_numero_manual():
-    dados = request.json
-    numero = dados.get('numero')
-    novo_status = dados.get('status')
-    novo_nome = dados.get('nome_comprador')
-    novo_telefone = dados.get('telefone')
-
-    if novo_status == 'Disponível':
-        novo_nome = None
-        novo_telefone = None
-
+@app.route('/admin')
+def admin():
+    """Painel administrativo para visualizar todas as reservas."""
+    conn = None
     try:
-        conexao = conectar_banco()
-        cursor = conexao.cursor()
-        cursor.execute("""
-            UPDATE sorteio_salario_minimo 
-            SET status = %s, nome_comprador = %s, telefone = %s 
-            WHERE numero = %s
-        """, (novo_status, novo_nome, novo_telefone, numero))
-        conexao.commit()
-        cursor.close()
-        conexao.close()
-        return jsonify({"sucesso": True})
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM rifas ORDER BY numero ASC;")
+        rifas = cur.fetchall()
+        return render_template('admin.html', rifas=rifas)
     except Exception as e:
-        return jsonify({"erro": str(e)}), 500
-
-# API para buscar participantes pagos para o sorteio interativo
-@app.route('/api/admin/participantes-pagos', methods=['GET'])
-def buscar_participantes_pagos():
-    try:
-        conexao = conectar_banco()
-        cursor = conexao.cursor(cursor_factory=RealDictCursor)
-        cursor.execute("SELECT numero, nome_comprador, telefone FROM sorteio_salario_minimo WHERE status = 'Pago'")
-        participantes = cursor.fetchall()
-        cursor.close()
-        conexao.close()
-        return jsonify(participantes)
-    except Exception as e:
-        return jsonify({"erro": str(e)}), 500
-
-# API para resetar a Rifa
-@app.route('/api/admin/reset', methods=['POST'])
-def resetar_rifa():
-    try:
-        conexao = conectar_banco()
-        cursor = conexao.cursor()
-        cursor.execute("UPDATE sorteio_salario_minimo SET nome_comprador=NULL, telefone=NULL, status='Disponível'")
-        conexao.commit()
-        cursor.close()
-        conexao.close()
-        return jsonify({"sucesso": True})
-    except Exception as e:
-        return jsonify({"erro": str(e)}), 500
+        return f"Erro no painel: {e}", 500
+    finally:
+        if conn:
+            conn.close()
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    # Localmente usa a porta 5000 por padrão
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)), debug=True)
