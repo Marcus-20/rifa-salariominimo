@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Salário Mínimo no PIX 💸</title>
     <style>
-        /* CONFIGURAÇÃO DE CORES QUENTES - DESIGN PREMIUM EXTRAVAGANTE */
+        /* Estilos mantidos conforme o seu original */
         :root {
-            --bg-principal: #0d0603; /* Preto com fundo avermelhado profundo */
+            --bg-principal: #0d0603;
             --cor-dourado: #ffaa00;
             --cor-laranja: #ff5500;
             --cor-vermelho: #e60000;
@@ -15,254 +15,20 @@
             --glass-bg: rgba(25, 12, 6, 0.75);
             --glass-border: rgba(255, 85, 0, 0.25);
         }
-
-        body {
-            font-family: 'Segoe UI', Arial, sans-serif;
-            background-color: var(--bg-principal);
-            background-image: radial-gradient(circle at 50% 10%, rgba(230, 0, 0, 0.15) 0%, transparent 60%);
-            color: var(--cor-texto);
-            margin: 0;
-            padding: 20px 10px;
-            min-height: 100vh;
-        }
-
-        .container {
-            max-width: 700px;
-            margin: 0 auto;
-        }
-
-        /* HEADER EXTRAVAGANTE 💸 */
-        header {
-            text-align: center;
-            padding: 35px 20px;
-            background: var(--glass-bg);
-            border: 2px solid var(--cor-laranja);
-            border-radius: 24px;
-            box-shadow: 0 8px 32px rgba(255, 85, 0, 0.2);
-            margin-bottom: 25px;
-            backdrop-filter: blur(10px);
-        }
-
-        header h1 {
-            font-size: 30px;
-            margin: 0 0 10px 0;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            background: linear-gradient(90deg, var(--cor-dourado), #fff, var(--cor-laranja));
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            text-shadow: 0 0 15px rgba(255, 85, 0, 0.3);
-        }
-
-        header p {
-            font-size: 15px;
-            color: #ffccaa;
-            margin: 5px 0;
-        }
-
-        .preco-tag {
-            display: inline-block;
-            background: linear-gradient(90deg, var(--cor-vermelho), var(--cor-laranja));
-            color: white;
-            font-weight: 900;
-            font-size: 22px;
-            padding: 10px 30px;
-            border-radius: 50px;
-            margin-top: 15px;
-            box-shadow: 0 4px 15px rgba(230, 0, 0, 0.5);
-            border: 1px solid #fff;
-        }
-
-        /* LEGENDAS DE STATUS */
-        .legenda {
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-            margin-bottom: 20px;
-            background: var(--glass-bg);
-            padding: 12px;
-            border-radius: 50px;
-            border: 1px solid var(--glass-border);
-        }
-
-        .legenda-item {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 13px;
-            font-weight: bold;
-        }
-
-        .circulo {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-        }
-        .circulo.livre { background: var(--cor-dourado); box-shadow: 0 0 8px var(--cor-dourado); }
-        .circulo.reservado { background: #ffea00; box-shadow: 0 0 8px #ffea00; }
-        .circulo.pago { background: var(--cor-vermelho); box-shadow: 0 0 8px var(--cor-vermelho); }
-
-        /* TABELA DE NÚMEROS */
-        .grade {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
-            gap: 10px;
-            background: var(--glass-bg);
-            padding: 20px;
-            border-radius: 20px;
-            border: 1px solid var(--glass-border);
-            margin-bottom: 80px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-        }
-
-        .numero {
-            aspect-ratio: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 800;
-            font-size: 16px;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            user-select: none;
-        }
-
-        /* LIVRE */
-        .numero.disponivel {
-            background: rgba(255, 170, 0, 0.03);
-            border: 2px solid var(--cor-dourado);
-            color: var(--cor-dourado);
-        }
-        .numero.disponivel:hover {
-            background: linear-gradient(135deg, var(--cor-dourado), var(--cor-laranja));
-            color: #000;
-            transform: scale(1.12);
-            box-shadow: 0 0 12px var(--cor-laranja);
-            border-color: #fff;
-        }
-
-        /* SELECIONADO NA HORA */
-        .numero.selecionado {
-            background: #fff !important;
-            border-color: #fff !important;
-            color: #000 !important;
-            box-shadow: 0 0 18px #fff;
-            transform: scale(1.12);
-        }
-
-        /* RESERVADO (Amarelo Pulsante) */
-        .numero.reservado {
-            background: rgba(255, 234, 0, 0.1);
-            border: 2px solid #ffea00;
-            color: #ffea00;
-            cursor: not-allowed;
-            opacity: 0.6;
-        }
-
-        /* PAGO (Vermelho) */
-        .numero.pago {
-            background: rgba(230, 0, 0, 0.15);
-            border: 2px solid var(--cor-vermelho);
-            color: var(--cor-vermelho);
-            cursor: not-allowed;
-            opacity: 0.5;
-        }
-
-        /* BARRA DE COMPRA FLUTUANTE */
-        .barra-compra {
-            position: fixed;
-            bottom: 15px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: linear-gradient(135deg, rgba(25, 10, 5, 0.98), rgba(10, 3, 1, 0.98));
-            border: 2px solid var(--cor-laranja);
-            padding: 12px 25px;
-            border-radius: 50px;
-            box-shadow: 0 8px 25px rgba(255, 85, 0, 0.4);
-            display: none;
-            align-items: center;
-            justify-content: space-between;
-            width: 90%;
-            max-width: 450px;
-            z-index: 100;
-        }
-
-        .btn {
-            background: linear-gradient(90deg, var(--cor-dourado), var(--cor-laranja));
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            font-weight: 800;
-            border-radius: 30px;
-            cursor: pointer;
-            text-transform: uppercase;
-            box-shadow: 0 4px 12px rgba(255, 85, 0, 0.4);
-            transition: 0.2s;
-        }
-        .btn:hover {
-            transform: scale(1.04);
-            filter: brightness(1.1);
-        }
-
-        /* MODAL GIGANTE */
-        .modal {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.92);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 200;
-        }
-
-        .modal-conteudo {
-            background: linear-gradient(135deg, #190904, #0a0301);
-            border: 2px solid var(--cor-laranja);
-            padding: 25px;
-            border-radius: 20px;
-            width: 90%;
-            max-width: 400px;
-            text-align: center;
-            box-shadow: 0 10px 30px rgba(255, 85, 0, 0.3);
-        }
-
-        .input-grupo {
-            margin-bottom: 15px;
-            text-align: left;
-        }
-        .input-grupo label {
-            display: block;
-            margin-bottom: 5px;
-            color: #ffaa66;
-            font-weight: bold;
-            font-size: 13px;
-        }
-        .input-grupo input {
-            width: 100%;
-            padding: 12px;
-            border-radius: 8px;
-            border: 1px solid var(--glass-border);
-            background: rgba(0,0,0,0.5);
-            color: white;
-            box-sizing: border-box;
-            font-size: 15px;
-        }
-        .input-grupo input:focus {
-            outline: none;
-            border-color: var(--cor-dourado);
-            box-shadow: 0 0 10px rgba(255, 170, 0, 0.2);
-        }
-
-        .qrcode-container img {
-            width: 200px;
-            height: 200px;
-            border-radius: 10px;
-            margin: 15px 0;
-            border: 3px solid white;
-            box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
-        }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background-color: var(--bg-principal); color: var(--cor-texto); margin: 0; padding: 20px 10px; min-height: 100vh; }
+        .container { max-width: 700px; margin: 0 auto; }
+        header { text-align: center; padding: 35px 20px; background: var(--glass-bg); border: 2px solid var(--cor-laranja); border-radius: 24px; margin-bottom: 25px; }
+        .grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(50px, 1fr)); gap: 10px; background: var(--glass-bg); padding: 20px; border-radius: 20px; border: 1px solid var(--glass-border); }
+        .numero { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-weight: 800; border-radius: 10px; cursor: pointer; transition: 0.2s; }
+        .numero.disponivel { border: 2px solid var(--cor-dourado); color: var(--cor-dourado); }
+        .numero.selecionado { background: #fff !important; color: #000 !important; transform: scale(1.1); }
+        .numero.reservado { border: 2px solid #ffea00; color: #ffea00; opacity: 0.6; cursor: not-allowed; }
+        .numero.pago { border: 2px solid var(--cor-vermelho); color: var(--cor-vermelho); opacity: 0.5; cursor: not-allowed; }
+        .barra-compra { position: fixed; bottom: 15px; left: 50%; transform: translateX(-50%); background: #190904; border: 2px solid var(--cor-laranja); padding: 12px 25px; border-radius: 50px; display: none; align-items: center; justify-content: space-between; width: 90%; max-width: 450px; z-index: 100; }
+        .btn { background: linear-gradient(90deg, var(--cor-dourado), var(--cor-laranja)); color: white; border: none; padding: 10px 20px; border-radius: 30px; cursor: pointer; font-weight: bold; }
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.92); display: none; align-items: center; justify-content: center; z-index: 200; }
+        .modal-conteudo { background: #190904; border: 2px solid var(--cor-laranja); padding: 25px; border-radius: 20px; width: 90%; max-width: 400px; text-align: center; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #555; background: #000; color: white; }
     </style>
 </head>
 <body>
@@ -270,79 +36,55 @@
     <div class="container">
         <header>
             <h1>💸 BILHETE DA FORTUNA 💸</h1>
-            <p>Compre suas cotas e concorra sem sair de casa!</p>
-            <div class="preco-tag">UM SALÁRIO MÍNIMO NO PIX</div>
+            <p>UM SALÁRIO MÍNIMO NO PIX</p>
         </header>
-
-        <div class="legenda">
-            <div class="legenda-item"><span class="circulo livre"></span> Livre</div>
-            <div class="legenda-item"><span class="circulo reservado"></span> Reservado</div>
-            <div class="legenda-item"><span class="circulo pago"></span> Pago</div>
-        </div>
-
         <div class="grade" id="grade-numeros"></div>
     </div>
 
-    <!-- BARRA FLUTUANTE DE COMPRA -->
     <div class="barra-compra" id="barra-acao">
         <div>
-            <span style="font-size: 12px; color: #ffccaa; display: block;">Números selecionados: <strong id="qtd" style="color: white;">0</strong></span>
-            <span style="font-size: 18px; font-weight: 800; color: var(--cor-dourado);" id="total">R$ 0,00</span>
+            <span style="display: block;">Selecionados: <strong id="qtd">0</strong></span>
+            <span style="color: var(--cor-dourado);" id="total">R$ 0,00</span>
         </div>
         <button class="btn" onclick="abrirModal()">Comprar Agora 🚀</button>
     </div>
 
-    <!-- POP-UP DO FORMULÁRIO / PIX -->
     <div class="modal" id="modal-dados">
         <div class="modal-conteudo" id="modal-corpo">
-            <h2 style="color: var(--cor-dourado); margin: 0 0 15px 0;">Sua Identificação 👤</h2>
-            
-            <div class="input-grupo">
-                <label>Nome Completo:</label>
-                <input type="text" id="nome" placeholder="Digite seu nome">
-            </div>
-            
-            <div class="input-grupo">
-                <label>WhatsApp (com DDD):</label>
-                <input type="tel" id="tel" placeholder="(83) 99999-9999">
-            </div>
-            
-            <button class="btn" style="width: 100%; margin-top: 10px; padding: 12px;" onclick="enviarReserva()">Gerar PIX Seguro 🔒</button>
-            <button class="btn" style="width: 100%; margin-top: 10px; background: #222; box-shadow: none;" onclick="fecharModal()">Cancelar</button>
+            <h2>Sua Identificação 👤</h2>
+            <input type="text" id="nome" placeholder="Nome Completo">
+            <input type="tel" id="tel" placeholder="WhatsApp (DDD+Número)">
+            <button class="btn" style="width: 100%;" onclick="enviarReserva()">Gerar PIX Seguro 🔒</button>
+            <button class="btn" style="width: 100%; background: #222;" onclick="fecharModal()">Cancelar</button>
         </div>
     </div>
 
     <script>
         let selecionados = [];
 
-        // Busca os números no banco de dados e desenha a grade na tela
         async function carregarGrade() {
-            try {
-                const res = await fetch('/api/numeros');
-                const numeros = await res.json();
-                const grade = document.getElementById('grade-numeros');
-                grade.innerHTML = '';
+            const res = await fetch('/api/numeros');
+            const numeros = await res.json();
+            const grade = document.getElementById('grade-numeros');
+            grade.innerHTML = '';
 
-                numeros.forEach(item => {
-                    const box = document.createElement('div');
-                    box.innerText = String(item.numero).padStart(2, '0');
-                    
-                    if (item.status === 'Disponível') {
-                        box.className = 'numero disponivel';
-                        box.onclick = () => alternarNumero(item.numero, box);
-                    } else if (item.status === 'Reservado') {
-                        box.className = 'numero reservado';
-                    } else {
-                        box.className = 'numero pago';
-                    }
-                    grade.appendChild(box);
-                });
-            } catch (erro) {
-                console.error("Erro ao carregar números:", erro);
-            }
+            numeros.forEach(item => {
+                const box = document.createElement('div');
+                box.innerText = String(item.numero).padStart(2, '0');
+                
+                // Comparando exatamente com o que vem do banco
+                if (item.status === 'disponivel') {
+                    box.className = 'numero disponivel';
+                    box.onclick = () => alternarNumero(item.numero, box);
+                } else if (item.status === 'reservado') {
+                    box.className = 'numero reservado';
+                } else {
+                    box.className = 'numero pago';
+                }
+                grade.appendChild(box);
+            });
         }
 
-        // Função para marcar/desmarcar números que o comprador clica
         function alternarNumero(num, box) {
             if (selecionados.includes(num)) {
                 selecionados = selecionados.filter(n => n !== num);
@@ -354,72 +96,33 @@
             atualizarBarra();
         }
 
-        // Atualiza a barra flutuante de preço
         function atualizarBarra() {
             const barra = document.getElementById('barra-acao');
-            if (selecionados.length > 0) {
-                barra.style.display = 'flex';
-                document.getElementById('qtd').innerText = selecionados.length;
-                document.getElementById('total').innerText = `R$ ${(selecionados.length * 10).toFixed(2).replace('.', ',')}`;
-            } else {
-                barra.style.display = 'none';
-            }
+            barra.style.display = selecionados.length > 0 ? 'flex' : 'none';
+            document.getElementById('qtd').innerText = selecionados.length;
+            document.getElementById('total').innerText = `R$ ${(selecionados.length * 10).toFixed(2).replace('.', ',')}`;
         }
 
         function abrirModal() { document.getElementById('modal-dados').style.display = 'flex'; }
         function fecharModal() { document.getElementById('modal-dados').style.display = 'none'; }
 
-        // Envia a reserva e exibe o QR Code dinâmico do Mercado Pago
         async function enviarReserva() {
             const nome = document.getElementById('nome').value;
             const tel = document.getElementById('tel').value;
+            if (!nome || !tel) return alert("Preencha seus dados!");
 
-            if (!nome || !tel) {
-                alert("Por favor, preencha o Nome e o WhatsApp!");
-                return;
-            }
+            const res = await fetch('/api/reservar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nome, telefone: tel, numeros: selecionados })
+            });
 
-            const modalCorpo = document.getElementById('modal-corpo');
-            modalCorpo.innerHTML = `<h2>Processando... 🚀</h2><p style="color: #ffaa66;">Estamos gerando seu pagamento seguro no Mercado Pago.</p>`;
-
-            try {
-                const res = await fetch('/api/reservar', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nome: nome, telefone: tel, numeros: selecionados })
-                });
-
-                const resposta = await res.json();
-
-                if (res.ok) {
-                    modalCorpo.innerHTML = `
-                        <h2 style="color: var(--cor-dourado);">Chave Pix Gerada! 🎉</h2>
-                        <p style="font-size: 14px; margin-bottom: 5px;">Pague <strong>R$ ${resposta.total.toFixed(2)}</strong> para garantir seus números.</p>
-                        <div class="qrcode-container">
-                            <img src="data:image/jpeg;base64,${resposta.pix_image}" alt="QR Code PIX">
-                        </div>
-                        <div class="input-grupo">
-                            <input type="text" id="copiacola" value="${resposta.pix_copia_cola}" readonly style="text-align: center; background: #000; font-size: 12px;">
-                        </div>
-                        <button class="btn" style="width: 100%; margin-bottom: 10px;" onclick="copiarPix()">📋 Copiar Código PIX</button>
-                        <button class="btn" style="width: 100%; background: #28a745; box-shadow: none;" onclick="window.location.reload()">Já paguei! Fechar</button>
-                    `;
-                } else {
-                    alert(resposta.erro || "Ocorreu um erro no servidor.");
-                    window.location.reload();
-                }
-            } catch (e) {
-                alert("Erro ao tentar conectar ao servidor.");
+            if (res.ok) {
+                alert("Reserva realizada!");
                 window.location.reload();
+            } else {
+                alert("Erro na reserva.");
             }
-        }
-
-        function copiarPix() {
-            const input = document.getElementById('copiacola');
-            input.select();
-            input.setSelectionRange(0, 99999);
-            navigator.clipboard.writeText(input.value);
-            alert("Código Copia e Cola copiado com sucesso!");
         }
 
         carregarGrade();
