@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel do Dono - Sorteio de Elite 👑</title>
+    <!-- Biblioteca de Confetes para o Grande Ganhador -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        :root {
+            --bg-principal: #0d0603;
+            --cor-dourado: #ffaa00;
+            --cor-laranja: #ff5500;
+            --cor-vermelho: #e60000;
+            --cor-texto: #fff5f0;
+            --glass-bg: rgba(25, 12, 6, 0.75);
+            --glass-border: rgba(255, 85, 0, 0.25);
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: var(--bg-principal);
+            background-image: radial-gradient(circle at 50% 10%, rgba(230, 0, 0, 0.15) 0%, transparent 60%);
+            color: var(--cor-texto);
+            margin: 0; padding: 20px 10px;
+        }
+
+        .container { max-width: 800px; margin: 0 auto; }
+
+        header {
+            text-align: center;
+            padding: 20px;
+            background: var(--glass-bg);
+            border: 2px solid var(--cor-laranja);
+            border-radius: 20px;
+            margin-bottom: 25px;
+            box-shadow: 0 8px 32px rgba(255, 85, 0, 0.2);
+        }
+
+        h1 { margin: 0; color: var(--cor-dourado); text-transform: uppercase; font-size: 24px; }
+
+        .btn {
+            background: linear-gradient(90deg, var(--cor-dourado), var(--cor-laranja));
+            color: white; border: none; padding: 12px 24px; font-weight: 800;
+            border-radius: 30px; cursor: pointer; text-transform: uppercase;
+            box-shadow: 0 4px 12px rgba(255, 85, 0, 0.4); transition: 0.2s;
+        }
+        .btn:hover { transform: scale(1.04); filter: brightness(1.1); }
+        .btn-perigo { background: var(--cor-vermelho); box-shadow: 0 4px 12px rgba(230, 0, 0, 0.4); }
+
+        /* MÁQUINA DE SORTEIO ESTILO CASSINO 🎰 */
+        .secao-sorteio {
+            background: radial-gradient(circle, #251005 0%, #0d0603 100%);
+            border: 3px solid var(--cor-dourado);
+            border-radius: 24px; padding: 30px; text-align: center;
+            box-shadow: 0 0 30px rgba(255, 170, 0, 0.25);
+            margin-bottom: 30px; position: relative; overflow: hidden;
+        }
+
+        .display-roleta {
+            font-size: 80px; font-weight: 900;
+            background: #000; color: var(--cor-dourado);
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 160px; height: 160px; border-radius: 50%;
+            border: 5px dashed var(--cor-laranja); margin: 20px 0;
+            text-shadow: 0 0 20px var(--cor-laranja);
+            box-shadow: inset 0 0 20px rgba(255,85,0,0.5), 0 0 25px rgba(255,170,0,0.3);
+        }
+
+        .display-roleta.girando {
+            animation: girarBorda 0.5s linear infinite;
+        }
+
+        @keyframes girarBorda {
+            100% { transform: rotate(360deg); }
+        }
+
+        .vencedor-box {
+            display: none; background: rgba(255, 255, 255, 0.05);
+            border: 2px solid #28a745; border-radius: 15px;
+            padding: 15px; margin-top: 20px;
+            box-shadow: 0 0 20px rgba(40, 167, 69, 0.2);
+        }
+
+        /* GERENCIAMENTO DE NÚMEROS */
+        .grade-admin {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(65px, 1fr));
+            gap: 12px; background: var(--glass-bg); padding: 20px;
+            border-radius: 20px; border: 1px solid var(--glass-border);
+        }
+
+        .num-box {
+            aspect-ratio: 1; border-radius: 12px; font-weight: bold;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            cursor: pointer; transition: 0.2s; border: 2px solid transparent; font-size: 14px;
+        }
+        .num-box span { font-size: 10px; opacity: 0.8; margin-top: 2px; }
+
+        .num-disponivel { background: rgba(255, 170, 0, 0.05); border-color: var(--cor-dourado); color: var(--cor-dourado); }
+        .num-reservado { background: rgba(255, 234, 0, 0.1); border-color: #ffea00; color: #ffea00; }
+        .num-pago { background: rgba(230, 0, 0, 0.15); border-color: var(--cor-vermelho); color: var(--cor-vermelho); }
+
+        /* MODAL DE EDIÇÃO */
+        .modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); display: none; align-items: center; justify-content: center; z-index: 100;
+        }
+        .modal-conteudo {
+            background: #190904; border: 2px solid var(--cor-laranja);
+            padding: 25px; border-radius: 20px; width: 90%; max-width: 400px;
+        }
+        select, input {
+            width: 100%; padding: 12px; margin-top: 5px; margin-bottom: 15px;
+            border-radius: 8px; border: 1px solid var(--glass-border);
+            background: #000; color: white; font-size: 15px; box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>👑 Painel Administrativo de Elite 👑</h1>
+            <p>Rifa Ativa: Salário Mínimo R$ 10,00</p>
+            <div style="margin-top: 15px;">
+                <button class="btn btn-perigo" onclick="confirmarReset()">🚨 Resetar Toda a Rifa</button>
+            </div>
+        </header>
+
+        <!-- MÁQUINA DE SORTEIO 🎰 -->
+        <div class="secao-sorteio">
+            <h2 style="color: var(--cor-dourado); margin: 0; text-transform: uppercase;">Sorteio Instantâneo</h2>
+            <p style="color: #ffccaa; font-size: 14px;">Apenas números com status "Pago" entram na roleta!</p>
+            
+            <div>
+                <div class="display-roleta" id="roleta">?</div>
+            </div>
+
+            <div>
+                <button class="btn" style="padding: 15px 40px; font-size: 18px;" id="btn-sortear" onclick="girarRoleta()">Girar Roleta 🎰</button>
+            </div>
+
+            <div class="vencedor-box" id="resultado-vencedor">
+                <h3 style="color: #28a745; margin: 0 0 5px 0; text-transform: uppercase;">🏆 GANHADOR CONFIRMADO! 🏆</h3>
+                <p style="font-size: 20px; font-weight: bold; margin: 5px 0;">Número: <span id="vencedor-num" style="color: var(--cor-dourado);">00</span></p>
+                <p style="font-size: 16px; margin: 5px 0;">Nome: <strong id="vencedor-nome">--</strong></p>
+                <p style="font-size: 16px; margin: 0;">Contato: <strong id="vencedor-tel">--</strong></p>
+            </div>
+        </div>
+
+        <h2 style="color: var(--cor-laranja); text-transform: uppercase; font-size: 18px; margin-bottom: 15px;">Gerenciar Números de 1 a 100</h2>
+        <div class="grade-admin" id="grade-admin"></div>
+    </div>
+
+    <!-- MODAL DE EDIÇÃO RÁPIDA -->
+    <div class="modal" id="modal-edicao">
+        <div class="modal-conteudo">
+            <h3 style="color: var(--cor-dourado); margin-top: 0;" id="modal-titulo">Editar Número 00</h3>
+            
+            <label style="color: #ffaa66; font-size: 13px; font-weight: bold;">Status do Número:</label>
+            <select id="edit-status" onchange="alternarCamposEdicao()">
+                <option value="Disponível">Livre / Disponível</option>
+                <option value="Reservado">Reservado</option>
+                <option value="Pago">Confirmado / Pago</option>
+            </select>
+
+            <div id="campos-comprador">
+                <label style="color: #ffaa66; font-size: 13px; font-weight: bold;">Nome do Comprador:</label>
+                <input type="text" id="edit-nome" placeholder="Ex: João da Silva">
+
+                <label style="color: #ffaa66; font-size: 13px; font-weight: bold;">WhatsApp:</label>
+                <input type="text" id="edit-telefone" placeholder="Ex: 83999999999">
+            </div>
+
+            <button class="btn" style="width: 100%; margin-top: 10px;" onclick="salvarEdicao()">Salvar Alterações ✅</button>
+            <button class="btn" style="width: 100%; margin-top: 10px; background: #333; box-shadow: none;" onclick="fecharModal()">Fechar</button>
+        </div>
+    </div>
+
+    <script>
+        let numeroSendoEditado = null;
+
+        // Carrega a lista com controle de status administrativo
+        async function carregarGradeAdmin() {
+            const res = await fetch('/api/numeros');
+            const numeros = await res.json();
+            const grade = document.getElementById('grade-admin');
+            grade.innerHTML = '';
+
+            numeros.forEach(item => {
+                const box = document.createElement('div');
+                box.className = `num-box ${
+                    item.status === 'Disponível' ? 'num-disponivel' : 
+                    item.status === 'Reservado' ? 'num-reservado' : 'num-pago'
+                }`;
+
+                box.innerHTML = `
+                    <strong>${String(item.numero).padStart(2, '0')}</strong>
+                    <span>${item.status === 'Disponível' ? 'Livre' : item.status}</span>
+                `;
+
+                box.onclick = () => abrirModalEdicao(item);
+                grade.appendChild(box);
+            });
+        }
+
+        function abrirModalEdicao(item) {
+            numeroSendoEditado = item.numero;
+            document.getElementById('modal-titulo').innerText = `Editar Número ${String(item.numero).padStart(2, '0')}`;
+            document.getElementById('edit-status').value = item.status;
+            document.getElementById('edit-nome').value = item.nome_comprador || '';
+            document.getElementById('edit-telefone').value = item.telefone || '';
+            
+            alternarCamposEdicao();
+            document.getElementById('modal-edicao').style.display = 'flex';
+        }
+
+        function fecharModal() { document.getElementById('modal-edicao').style.display = 'none'; }
+
+        function alternarCamposEdicao() {
+            const status = document.getElementById('edit-status').value;
+            const campos = document.getElementById('campos-comprador');
+            campos.style.display = status === 'Disponível' ? 'none' : 'block';
+        }
+
+        async function salvarEdicao() {
+            const status = document.getElementById('edit-status').value;
+            const nome = document.getElementById('edit-nome').value;
+            const tel = document.getElementById('edit-telefone').value;
+
+            const res = await fetch('/api/admin/editar-numero', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    numero: numeroSendoEditado,
+                    status: status,
+                    nome_comprador: nome,
+                    telefone: tel
+                })
+            });
+
+            if (res.ok) {
+                fecharModal();
+                carregarGradeAdmin();
+            } else {
+                alert("Erro ao salvar alterações.");
+            }
+        }
+
+        // SISTEMA DE ROLETA 🎰
+        async function girarRoleta() {
+            const res = await fetch('/api/admin/participantes-pagos');
+            const participantes = await res.json();
+
+            if (participantes.length === 0) {
+                alert("Não existem números marcados como 'Pago' no sistema!");
+                return;
+            }
+
+            const btnSorteio = document.getElementById('btn-sortear');
+            const display = document.getElementById('roleta');
+            const resultadoBox = document.getElementById('resultado-vencedor');
+            
+            btnSorteio.disabled = true;
+            resultadoBox.style.display = 'none';
+
+            let duracao = 3000; // 3 segundos girando
+            let intervaloTempo = 60;
+            let cronometro;
+
+            // Começa a animação visual rápida de sorteio
+            cronometro = setInterval(() => {
+                const aleatorioVisual = participantes[Math.floor(Math.random() * participantes.length)];
+                display.innerText = String(aleatorioVisual.numero).padStart(2, '0');
+            }, intervaloTempo);
+
+            // Reduz a velocidade da roleta até parar no ganhador oficial
+            setTimeout(() => {
+                clearInterval(cronometro);
+                
+                // Escolhe o ganhador real da lista de participantes pagos
+                const ganhadorFinal = participantes[Math.floor(Math.random() * participantes.length)];
+                
+                display.innerText = String(ganhadorFinal.numero).padStart(2, '0');
+                display.style.borderColor = "#28a745";
+                display.style.textShadow = "0 0 30px #28a745";
+
+                // Exibe os dados do Vencedor na Tela
+                document.getElementById('vencedor-num').innerText = String(ganhadorFinal.numero).padStart(2, '0');
+                document.getElementById('vencedor-nome').innerText = ganhadorFinal.nome_comprador;
+                document.getElementById('vencedor-tel').innerText = ganhadorFinal.telefone;
+                resultadoBox.style.display = 'block';
+
+                // 🎉 CHUVA DE CONFETES PREMIUM 🎉
+                const duracaoConfete = 3 * 1000;
+                const fim = Date.now() + duracaoConfete;
+
+                (function frame() {
+                    confetti({
+                        particleCount: 5,
+                        angle: 60,
+                        spread: 55,
+                        origin: { x: 0 },
+                        colors: ['#ffaa00', '#ff5500', '#e60000', '#ffffff']
+                    });
+                    confetti({
+                        particleCount: 5,
+                        angle: 120,
+                        spread: 55,
+                        origin: { x: 1 },
+                        colors: ['#ffaa00', '#ff5500', '#e60000', '#ffffff']
+                    });
+
+                    if (Date.now() < fim) {
+                        requestAnimationFrame(frame);
+                    }
+                }());
+
+                btnSorteio.disabled = false;
+            }, duracao);
+        }
+
+        // Confirmação para evitar resetar sem querer
+        async function confirmarReset() {
+            if (confirm("🚨 TEM CERTEZA? Isso vai apagar o nome de todos os compradores e liberar todos os 100 números novamente!")) {
+                const res = await fetch('/api/admin/reset', { method: 'POST' });
+                if (res.ok) {
+                    alert("Rifa resetada com sucesso!");
+                    carregarGradeAdmin();
+                    document.getElementById('resultado-vencedor').style.display = 'none';
+                    document.getElementById('roleta').innerText = '?';
+                    document.getElementById('roleta').style.borderColor = 'var(--cor-laranja)';
+                }
+            }
+        }
+
+        carregarGradeAdmin();
+    </script>
+</body>
+</html>
