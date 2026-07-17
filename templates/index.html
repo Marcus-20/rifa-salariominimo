@@ -5,78 +5,37 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Salário Mínimo no PIX 💸</title>
     <style>
-        /* Estilos mantidos conforme o seu original */
-        :root {
-            --bg-principal: #0d0603;
-            --cor-dourado: #ffaa00;
-            --cor-laranja: #ff5500;
-            --cor-vermelho: #e60000;
-            --cor-texto: #fff5f0;
-            --glass-bg: rgba(25, 12, 6, 0.75);
-            --glass-border: rgba(255, 85, 0, 0.25);
-        }
-        body { font-family: 'Segoe UI', Arial, sans-serif; background-color: var(--bg-principal); color: var(--cor-texto); margin: 0; padding: 20px 10px; min-height: 100vh; }
+        :root { --bg-principal: #0d0603; --cor-dourado: #ffaa00; --cor-laranja: #ff5500; --cor-vermelho: #e60000; --cor-texto: #fff5f0; --glass-bg: rgba(25, 12, 6, 0.75); }
+        body { font-family: sans-serif; background-color: var(--bg-principal); color: var(--cor-texto); padding: 20px; min-height: 100vh; }
         .container { max-width: 700px; margin: 0 auto; }
-        header { text-align: center; padding: 35px 20px; background: var(--glass-bg); border: 2px solid var(--cor-laranja); border-radius: 24px; margin-bottom: 25px; }
-        .grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(50px, 1fr)); gap: 10px; background: var(--glass-bg); padding: 20px; border-radius: 20px; border: 1px solid var(--glass-border); }
-        .numero { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-weight: 800; border-radius: 10px; cursor: pointer; transition: 0.2s; }
-        .numero.disponivel { border: 2px solid var(--cor-dourado); color: var(--cor-dourado); }
+        .grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(50px, 1fr)); gap: 10px; background: var(--glass-bg); padding: 20px; border-radius: 20px; }
+        .numero { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-weight: 800; border-radius: 10px; cursor: pointer; border: 2px solid transparent; }
+        .numero.disponivel { border-color: var(--cor-dourado); color: var(--cor-dourado); }
         .numero.selecionado { background: #fff !important; color: #000 !important; transform: scale(1.1); }
-        .numero.reservado { border: 2px solid #ffea00; color: #ffea00; opacity: 0.6; cursor: not-allowed; }
-        .numero.pago { border: 2px solid var(--cor-vermelho); color: var(--cor-vermelho); opacity: 0.5; cursor: not-allowed; }
-        .barra-compra { position: fixed; bottom: 15px; left: 50%; transform: translateX(-50%); background: #190904; border: 2px solid var(--cor-laranja); padding: 12px 25px; border-radius: 50px; display: none; align-items: center; justify-content: space-between; width: 90%; max-width: 450px; z-index: 100; }
-        .btn { background: linear-gradient(90deg, var(--cor-dourado), var(--cor-laranja)); color: white; border: none; padding: 10px 20px; border-radius: 30px; cursor: pointer; font-weight: bold; }
-        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.92); display: none; align-items: center; justify-content: center; z-index: 200; }
-        .modal-conteudo { background: #190904; border: 2px solid var(--cor-laranja); padding: 25px; border-radius: 20px; width: 90%; max-width: 400px; text-align: center; }
-        input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #555; background: #000; color: white; }
+        .numero.reservado { border-color: #ffea00; color: #ffea00; opacity: 0.6; cursor: not-allowed; }
+        .numero.pago { border-color: var(--cor-vermelho); color: var(--cor-vermelho); opacity: 0.5; cursor: not-allowed; }
     </style>
 </head>
 <body>
-
     <div class="container">
-        <header>
-            <h1>💸 BILHETE DA FORTUNA 💸</h1>
-            <p>UM SALÁRIO MÍNIMO NO PIX</p>
-        </header>
+        <h1>💸 BILHETE DA FORTUNA 💸</h1>
         <div class="grade" id="grade-numeros"></div>
-    </div>
-
-    <div class="barra-compra" id="barra-acao">
-        <div>
-            <span style="display: block;">Selecionados: <strong id="qtd">0</strong></span>
-            <span style="color: var(--cor-dourado);" id="total">R$ 0,00</span>
-        </div>
-        <button class="btn" onclick="abrirModal()">Comprar Agora 🚀</button>
-    </div>
-
-    <div class="modal" id="modal-dados">
-        <div class="modal-conteudo" id="modal-corpo">
-            <h2>Sua Identificação 👤</h2>
-            <input type="text" id="nome" placeholder="Nome Completo">
-            <input type="tel" id="tel" placeholder="WhatsApp (DDD+Número)">
-            <button class="btn" style="width: 100%;" onclick="enviarReserva()">Gerar PIX Seguro 🔒</button>
-            <button class="btn" style="width: 100%; background: #222;" onclick="fecharModal()">Cancelar</button>
-        </div>
     </div>
 
     <script>
         let selecionados = [];
-
         async function carregarGrade() {
             const res = await fetch('/api/numeros');
             const numeros = await res.json();
             const grade = document.getElementById('grade-numeros');
             grade.innerHTML = '';
-
             numeros.forEach(item => {
                 const box = document.createElement('div');
                 box.innerText = String(item.numero).padStart(2, '0');
-                
-                // Comparando exatamente com o que vem do banco
-                if (item.status === 'disponivel') {
+                if (item.status === 'Disponível') {
                     box.className = 'numero disponivel';
                     box.onclick = () => alternarNumero(item.numero, box);
-                } else if (item.status === 'reservado') {
+                } else if (item.status === 'Reservado') {
                     box.className = 'numero reservado';
                 } else {
                     box.className = 'numero pago';
@@ -84,7 +43,6 @@
                 grade.appendChild(box);
             });
         }
-
         function alternarNumero(num, box) {
             if (selecionados.includes(num)) {
                 selecionados = selecionados.filter(n => n !== num);
@@ -93,38 +51,7 @@
                 selecionados.push(num);
                 box.classList.add('selecionado');
             }
-            atualizarBarra();
         }
-
-        function atualizarBarra() {
-            const barra = document.getElementById('barra-acao');
-            barra.style.display = selecionados.length > 0 ? 'flex' : 'none';
-            document.getElementById('qtd').innerText = selecionados.length;
-            document.getElementById('total').innerText = `R$ ${(selecionados.length * 10).toFixed(2).replace('.', ',')}`;
-        }
-
-        function abrirModal() { document.getElementById('modal-dados').style.display = 'flex'; }
-        function fecharModal() { document.getElementById('modal-dados').style.display = 'none'; }
-
-        async function enviarReserva() {
-            const nome = document.getElementById('nome').value;
-            const tel = document.getElementById('tel').value;
-            if (!nome || !tel) return alert("Preencha seus dados!");
-
-            const res = await fetch('/api/reservar', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nome, telefone: tel, numeros: selecionados })
-            });
-
-            if (res.ok) {
-                alert("Reserva realizada!");
-                window.location.reload();
-            } else {
-                alert("Erro na reserva.");
-            }
-        }
-
         carregarGrade();
     </script>
 </body>
