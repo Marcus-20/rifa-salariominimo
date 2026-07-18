@@ -7,29 +7,34 @@ from psycopg2.extras import RealDictCursor
 app = Flask(__name__)
 # Configurações usando Variáveis de Ambiente
 DATABASE_URL = os.environ.get("DATABASE_URL")
-# IMPORTANTE: Garanta que MP_ACCESS_TOKEN esteja nas variáveis do Render
 sdk = mercadopago.SDK(os.environ.get("MP_ACCESS_TOKEN"))
 
 def get_db_connection():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
-# --- NOVA ROTA: WEBHOOK PARA PAGAMENTO AUTOMÁTICO ---
+# --- ROTA: WEBHOOK PARA PAGAMENTO AUTOMÁTICO ---
 @app.route('/webhook', methods=['POST'])
 def webhook():
     data = request.json
-    # Verifica se o evento é um pagamento
+    # Verifica se é uma notificação de pagamento
     if data.get('action') == 'payment.updated' or data.get('type') == 'payment':
         payment_id = data.get('data', {}).get('id') if 'data' in data else data.get('id')
         
         # Consulta os detalhes do pagamento no Mercado Pago
         payment_info = sdk.payment().get(payment_id)
-        status = payment_info['response']['status']
+        payment = payment_info.get('response', {})
         
-        # Se aprovado, busca os números associados no banco e marca como 'Pago'
-        if status == 'approved':
-            # Nota: Você pode precisar salvar o external_reference ou um id de transação 
-            # na tabela de rifas para vincular o pagamento aos números corretamente.
-            pass 
+        # Se aprovado, recupera os números do external_reference e marca como 'Pago'
+        if payment.get('status') == 'approved':
+            numeros_str = payment.get('external_reference')
+            if numeros_str:
+                numeros = numeros_str.split(',')
+                conn = get_db_connection()
+                cur = conn.cursor()
+                for num in numeros:
+                    cur.execute("UPDATE rifas SET status='Pago' WHERE numero=%s", (num,))
+                conn.commit()
+                conn.close()
             
     return '', 200
 
@@ -37,12 +42,14 @@ def webhook():
 @app.route('/api/criar-pagamento', methods=['POST'])
 def criar_pagamento():
     data = request.json
-    valor_total = float(len(data['numeros']) * 10)
+    numeros = data['numeros']
+    valor_total = float(len(numeros) * 10)
     
-    # Criar pagamento via PIX
+    # Criar pagamento via PIX com external_reference para o Webhook
     payment_data = {
         "transaction_amount": valor_total,
-        "description": f"Rifa Números {data['numeros']}",
+        "description": f"Rifa Números {numeros}",
+        "external_reference": ",".join(map(str, numeros)),
         "payment_method_id": "pix",
         "payer": {"email": "cliente@email.com"}
     }
@@ -52,7 +59,7 @@ def criar_pagamento():
         # Salva como Reservado
         conn = get_db_connection()
         cur = conn.cursor()
-        for num in data['numeros']:
+        for num in numeros:
             cur.execute("UPDATE rifas SET status='Reservado', nome_comprador=%s, telefone=%s WHERE numero=%s", 
                         (data['nome'], data['telefone'], num))
         conn.commit()
