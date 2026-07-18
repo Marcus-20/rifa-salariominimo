@@ -2,36 +2,29 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Painel Admin - Sorteio de Elite 👑</title>
+    <title>Painel Admin</title>
     <style>
         body { font-family: sans-serif; background: #0d0603; color: white; padding: 20px; }
         .grade-admin { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 10px; }
-        .num-box { padding: 10px; border: 2px solid; cursor: pointer; text-align: center; border-radius: 8px; }
+        .num-box { padding: 10px; border: 2px solid gold; cursor: pointer; text-align: center; border-radius: 8px; }
         .modal { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); display:none; align-items:center; justify-content:center; }
         .modal-conteudo { background:#190904; padding:20px; border-radius:15px; width:300px; }
-        input, select { width: 100%; margin: 10px 0; padding: 8px; }
     </style>
 </head>
 <body>
     <h1>Painel Admin</h1>
-    <button onclick="confirmarReset()" style="background:red; color:white;">Resetar Toda a Rifa</button>
-    <div class="grade-admin" id="grade-admin"></div>
+    <button onclick="confirmarReset()">Resetar Tudo</button>
+    <button onclick="realizarSorteio()" style="background:green;">Realizar Sorteio</button>
+    <div class="grade-admin" id="grade-admin" style="margin-top:20px;"></div>
 
     <div class="modal" id="modal-edicao">
         <div class="modal-conteudo">
             <h3 id="modal-titulo">Editar</h3>
-            <select id="edit-status">
-                <option value="Disponível">Disponível</option>
-                <option value="Reservado">Reservado</option>
-                <option value="Pago">Pago</option>
-            </select>
-            <input type="text" id="edit-nome" placeholder="Nome">
-            <input type="text" id="edit-telefone" placeholder="Telefone">
+            <select id="edit-status"><option value="Disponível">Disponível</option><option value="Reservado">Reservado</option><option value="Pago">Pago</option></select>
+            <input type="text" id="edit-nome" placeholder="Nome"><input type="text" id="edit-telefone" placeholder="Telefone">
             <button onclick="salvarEdicao()">Salvar</button>
-            <button onclick="fecharModal()">Fechar</button>
         </div>
     </div>
-
     <script>
         let numeroSendoEditado = null;
         async function carregarGradeAdmin() {
@@ -41,42 +34,31 @@
             grade.innerHTML = '';
             numeros.forEach(item => {
                 const box = document.createElement('div');
-                box.className = `num-box`;
-                box.style.borderColor = item.status === 'Disponível' ? 'gold' : item.status === 'Reservado' ? 'yellow' : 'red';
+                box.className = 'num-box';
                 box.innerHTML = `<strong>${item.numero}</strong><br>${item.status}`;
-                box.onclick = () => abrirModalEdicao(item);
+                box.onclick = () => {
+                    numeroSendoEditado = item.numero;
+                    document.getElementById('modal-titulo').innerText = `Editar ${item.numero}`;
+                    document.getElementById('edit-status').value = item.status;
+                    document.getElementById('modal-edicao').style.display = 'flex';
+                };
                 grade.appendChild(box);
             });
         }
-        function abrirModalEdicao(item) {
-            numeroSendoEditado = item.numero;
-            document.getElementById('modal-titulo').innerText = `Editar ${item.numero}`;
-            document.getElementById('edit-status').value = item.status;
-            document.getElementById('edit-nome').value = item.nome_comprador || '';
-            document.getElementById('edit-telefone').value = item.telefone || '';
-            document.getElementById('modal-edicao').style.display = 'flex';
+        async function realizarSorteio() {
+            const res = await fetch('/api/admin/sortear', { method: 'POST' });
+            const data = await res.json();
+            alert(data.vencedor ? `🎉 Vencedor: ${data.vencedor.numero} - ${data.vencedor.nome_comprador}` : data.erro);
         }
-        function fecharModal() { document.getElementById('modal-edicao').style.display = 'none'; }
         async function salvarEdicao() {
             await fetch('/api/admin/editar-numero', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    numero: numeroSendoEditado,
-                    status: document.getElementById('edit-status').value,
-                    nome_comprador: document.getElementById('edit-nome').value,
-                    telefone: document.getElementById('edit-telefone').value
-                })
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ numero: numeroSendoEditado, status: document.getElementById('edit-status').value })
             });
-            fecharModal();
+            document.getElementById('modal-edicao').style.display = 'none';
             carregarGradeAdmin();
         }
-        async function confirmarReset() {
-            if(confirm("Deseja resetar tudo?")) {
-                await fetch('/api/admin/reset', {method: 'POST'});
-                carregarGradeAdmin();
-            }
-        }
+        async function confirmarReset() { if(confirm("Resetar tudo?")) { await fetch('/api/admin/reset', {method: 'POST'}); carregarGradeAdmin(); } }
         carregarGradeAdmin();
     </script>
 </body>
