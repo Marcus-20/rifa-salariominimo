@@ -5,41 +5,67 @@ from flask import Flask, render_template, request, jsonify
 from psycopg2.extras import RealDictCursor
 
 app = Flask(__name__)
-# Configurações
+# Configurações usando Variáveis de Ambiente
 DATABASE_URL = os.environ.get("DATABASE_URL")
+# IMPORTANTE: Garanta que MP_ACCESS_TOKEN esteja nas variáveis do Render
 sdk = mercadopago.SDK(os.environ.get("MP_ACCESS_TOKEN"))
 
 def get_db_connection():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
-# --- ROTAS DE PAGAMENTO ---
+# --- NOVA ROTA: WEBHOOK PARA PAGAMENTO AUTOMÁTICO ---
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    data = request.json
+    # Verifica se o evento é um pagamento
+    if data.get('action') == 'payment.updated' or data.get('type') == 'payment':
+        payment_id = data.get('data', {}).get('id') if 'data' in data else data.get('id')
+        
+        # Consulta os detalhes do pagamento no Mercado Pago
+        payment_info = sdk.payment().get(payment_id)
+        status = payment_info['response']['status']
+        
+        # Se aprovado, busca os números associados no banco e marca como 'Pago'
+        if status == 'approved':
+            # Nota: Você pode precisar salvar o external_reference ou um id de transação 
+            # na tabela de rifas para vincular o pagamento aos números corretamente.
+            pass 
+            
+    return '', 200
 
+# --- ROTA DE CRIAÇÃO DE PIX ---
 @app.route('/api/criar-pagamento', methods=['POST'])
 def criar_pagamento():
     data = request.json
-    valor_total = float(len(data['numeros']) * 10) # R$ 10 por número
+    valor_total = float(len(data['numeros']) * 10)
     
-    # Criar preferência no Mercado Pago
+    # Criar pagamento via PIX
     payment_data = {
-        "items": [{"title": f"Rifa Números {data['numeros']}", "quantity": 1, "unit_price": valor_total}],
-        "payer": {"email": "cliente@email.com"},
-        "payment_methods": {"excluded_payment_types": [{"id": "credit_card"}]}
+        "transaction_amount": valor_total,
+        "description": f"Rifa Números {data['numeros']}",
+        "payment_method_id": "pix",
+        "payer": {"email": "cliente@email.com"}
     }
     result = sdk.payment().create(payment_data)
     
-    # Salvar reserva no banco como 'Reservado'
-    conn = get_db_connection()
-    cur = conn.cursor()
-    for num in data['numeros']:
-        cur.execute("UPDATE rifas SET status='Reservado', nome_comprador=%s, telefone=%s WHERE numero=%s", 
-                    (data['nome'], data['telefone'], num))
-    conn.commit()
-    conn.close()
+    if result["status"] == 201:
+        # Salva como Reservado
+        conn = get_db_connection()
+        cur = conn.cursor()
+        for num in data['numeros']:
+            cur.execute("UPDATE rifas SET status='Reservado', nome_comprador=%s, telefone=%s WHERE numero=%s", 
+                        (data['nome'], data['telefone'], num))
+        conn.commit()
+        conn.close()
+        
+        qr_code = result["response"]["point_of_interaction"]["transaction_data"]["qr_code"]
+        copia_cola = result["response"]["point_of_interaction"]["transaction_data"]["qr_code_base64"]
+        
+        return jsonify({"qr_code": qr_code, "copia_cola": copia_cola})
     
-    return jsonify({"qr_code": result["response"]["point_of_interaction"]["transaction_data"]["qr_code"], 
-                    "copia_cola": result["response"]["point_of_interaction"]["transaction_data"]["qr_code_base64"]})
+    return jsonify({"erro": "Falha ao criar pagamento"}), 400
 
-# --- DEMAIS ROTAS (Manter as que você já tinha) ---
+# --- DEMAIS ROTAS ---
 @app.route('/')
 def index(): return render_template('index.html')
 
