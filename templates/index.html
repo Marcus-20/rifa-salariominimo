@@ -1,38 +1,33 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bolão Salário Mínimo 💸</title>
     <style>
-        :root { --gold: #ffaa00; --dark: #0d0603; --light: #fff5f0; --accent: #ff5500; }
-        body { font-family: 'Segoe UI', sans-serif; background-color: var(--dark); color: var(--light); margin: 0; padding: 20px; }
+        :root { --gold: #ffaa00; --dark: #0d0603; }
+        body { font-family: sans-serif; background-color: var(--dark); color: #fff; padding: 20px; }
         .container { max-width: 600px; margin: 0 auto; text-align: center; }
-        .hero { background: linear-gradient(135deg, #2b150a, #0d0603); padding: 30px; border: 2px solid var(--gold); border-radius: 20px; }
         .grade { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; margin: 25px 0; }
-        .numero { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; border: 1px solid #444; border-radius: 6px; cursor: pointer; font-size: 13px; }
+        .numero { aspect-ratio: 1; border: 1px solid #444; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
         .disponivel { border-color: var(--gold); color: var(--gold); }
-        .selecionado { background: var(--gold); color: #000; font-weight: bold; }
-        .pago { background: #333; opacity: 0.4; cursor: not-allowed; }
-        .checkout, .pagamento-area { margin-top: 30px; padding: 25px; background: #1a0f0a; border: 1px solid #444; border-radius: 15px; }
-        input { width: 90%; padding: 12px; margin: 8px 0; border-radius: 8px; background: #000; color: white; border: 1px solid #555; }
-        button { width: 95%; padding: 15px; background: linear-gradient(90deg, var(--gold), var(--accent)); border: none; border-radius: 25px; font-weight: 800; color: white; cursor: pointer; margin-top: 15px; }
+        .selecionado { background: var(--gold); color: #000; }
+        .pago { background: #333; opacity: 0.4; }
+        .box { margin-top: 30px; padding: 20px; background: #1a0f0a; border-radius: 15px; }
+        button { width: 95%; padding: 15px; background: var(--gold); border: none; border-radius: 25px; cursor: pointer; font-weight: bold; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="hero"><h1>Bolão Salário Mínimo</h1><div class="prize">💰 R$ 1.621,00</div></div>
+        <h1>Bolão Salário Mínimo</h1>
         <div class="grade" id="grade-numeros"></div>
-        <div id="checkout" class="checkout" style="display:none;">
-            <h3>Finalizar Pedido</h3>
-            <p id="resumo-pedido"></p>
-            <input type="text" id="nome" placeholder="Seu Nome Completo">
-            <input type="text" id="tel" placeholder="WhatsApp (Ex: 83999999999)">
+        <div id="checkout" class="box" style="display:none;">
+            <input type="text" id="nome" placeholder="Nome"><input type="text" id="tel" placeholder="WhatsApp">
             <button onclick="finalizarCompra()">Gerar PIX e Reservar</button>
         </div>
-        <div id="pagamento-area" class="pagamento-area" style="display:none;">
-            <h3>PIX Gerado!</h3>
-            <textarea id="copia-cola-text" readonly style="width: 100%; height: 60px; background: #000; color: #fff;"></textarea>
+        <div id="pagamento-area" class="box" style="display:none;">
+            <h3>Escaneie o QR Code:</h3>
+            <img id="qr-code-img" src="" style="width:200px; height:200px; background:white; padding:5px;">
+            <textarea id="copia-cola-text" readonly style="width:100%; height:50px; margin:10px 0;"></textarea>
             <button onclick="copiarPix()">Copiar Código PIX</button>
         </div>
     </div>
@@ -44,44 +39,32 @@
             const grade = document.getElementById('grade-numeros');
             data.forEach(item => {
                 const box = document.createElement('div');
-                box.innerText = item.numero;
                 box.className = 'numero ' + (item.status === 'Disponível' ? 'disponivel' : 'pago');
+                box.innerText = item.numero;
                 if(item.status === 'Disponível') {
                     box.onclick = () => {
-                        if(selecionados.includes(item.numero)) {
-                            selecionados = selecionados.filter(n => n !== item.numero);
-                            box.classList.remove('selecionado');
-                        } else {
-                            selecionados.push(item.numero);
-                            box.classList.add('selecionado');
-                        }
-                        const div = document.getElementById('checkout');
-                        div.style.display = selecionados.length > 0 ? 'block' : 'none';
-                        document.getElementById('resumo-pedido').innerText = `Números: ${selecionados.join(', ')} | Total: R$ ${selecionados.length * 10},00`;
-                    };
+                        if(selecionados.includes(item.numero)) { selecionados = selecionados.filter(n => n !== item.numero); box.classList.remove('selecionado'); }
+                        else { selecionados.push(item.numero); box.classList.add('selecionado'); }
+                        document.getElementById('checkout').style.display = selecionados.length > 0 ? 'block' : 'none';
+                    }
                 }
                 grade.appendChild(box);
             });
         }
         async function finalizarCompra() {
-            const nome = document.getElementById('nome').value;
-            const tel = document.getElementById('tel').value;
             const res = await fetch('/api/criar-pagamento', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nome, telefone: tel, numeros: selecionados })
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ nome: document.getElementById('nome').value, telefone: document.getElementById('tel').value, numeros: selecionados })
             });
             const data = await res.json();
             if(data.copia_cola) {
                 document.getElementById('checkout').style.display = 'none';
                 document.getElementById('pagamento-area').style.display = 'block';
                 document.getElementById('copia-cola-text').value = data.copia_cola;
+                document.getElementById('qr-code-img').src = "data:image/png;base64," + data.qr_code_base64;
             }
         }
-        function copiarPix() {
-            document.getElementById("copia-cola-text").select();
-            document.execCommand("copy");
-            alert("Código copiado!");
-        }
+        function copiarPix() { document.getElementById("copia-cola-text").select(); document.execCommand("copy"); alert("Copiado!"); }
         carregarGrade();
     </script>
 </body>
