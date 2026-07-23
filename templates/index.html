@@ -14,12 +14,16 @@
         .hero h1 { color: var(--gold); font-size: 24px; margin: 0; text-transform: uppercase; }
         .prize { font-size: 28px; font-weight: bold; margin: 10px 0; color: #fff; }
         
-        /* Grade */
+        /* Grade e Cores de Status */
         .grade { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; margin: 25px 0; }
-        .numero { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; border: 1px solid #444; border-radius: 6px; cursor: pointer; font-size: 13px; transition: 0.2s; }
-        .disponivel { border-color: var(--gold); color: var(--gold); }
+        .numero { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; border: 1px solid #444; border-radius: 6px; font-size: 13px; transition: 0.2s; }
+        
+        /* Status visuais */
+        .disponivel { border-color: var(--gold); color: var(--gold); cursor: pointer; }
+        .disponivel:hover { background: rgba(255,170,0,0.2); }
         .selecionado { background: var(--gold); color: #000; font-weight: bold; transform: scale(1.1); }
-        .pago { background: #333; opacity: 0.4; cursor: not-allowed; }
+        .reservado { background: #3d2900; border-color: #f39c12; color: #f39c12; opacity: 0.8; cursor: not-allowed; }
+        .pago { background: #0b3d19; border-color: #2ecc71; color: #2ecc71; opacity: 0.8; cursor: not-allowed; }
         
         /* Checkout e Pagamento */
         .box { margin-top: 30px; padding: 25px; background: #1a0f0a; border: 1px solid #444; border-radius: 15px; }
@@ -30,7 +34,7 @@
 </head>
 <body>
     <div class="container">
-        <!-- Cabeçalho restaurado -->
+        <!-- Cabeçalho -->
         <div class="hero">
             <h1>Bolão Salário Mínimo</h1>
             <div class="prize">💰 R$ 1.621,00 NO PIX</div>
@@ -60,21 +64,34 @@
 
     <script>
         let selecionados = [];
+
         async function carregarGrade() {
             const res = await fetch('/api/numeros');
             const data = await res.json();
             const grade = document.getElementById('grade-numeros');
+            grade.innerHTML = '';
+
             data.forEach(item => {
                 const box = document.createElement('div');
                 box.innerText = item.numero;
-                box.className = 'numero ' + (item.status === 'Disponível' ? 'disponivel' : 'pago');
-                if(item.status === 'Disponível') {
+                
+                // Define a classe baseada exatamente no status retornado pelo banco
+                if (item.status === 'Pago') {
+                    box.className = 'numero pago';
+                } else if (item.status === 'Reservado') {
+                    box.className = 'numero reservado';
+                } else {
+                    box.className = 'numero disponivel';
+                    
+                    // Apenas números disponíveis podem ser clicados
                     box.onclick = () => {
-                        if(selecionados.includes(item.numero)) {
+                        if (selecionados.includes(item.numero)) {
                             selecionados = selecionados.filter(n => n !== item.numero);
                             box.classList.remove('selecionado');
+                            box.classList.add('disponivel');
                         } else {
                             selecionados.push(item.numero);
+                            box.classList.remove('disponivel');
                             box.classList.add('selecionado');
                         }
                         const div = document.getElementById('checkout');
@@ -110,6 +127,7 @@
             document.execCommand("copy");
             alert("Código copiado!");
         }
+
         carregarGrade();
     </script>
 </body>
